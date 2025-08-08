@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const canvasController = require("../controllers/canvasController");
 
 // Testing
 router.get("/", (req, res) => {
@@ -7,33 +8,21 @@ router.get("/", (req, res) => {
 });
 
 // Initialize a new canvas
-router.post("/init", (req, res) => {
-  res.status(501).json({ error: "init not implemented yet" });
-});
+router.post("/init", canvasController.initCanvas);
 
 // Add a shape
-router.post("/add/shape", (req, res) => {
-  res.status(501).json({ error: "add shape not implemented yet" });
-});
+router.post("/add/shape", canvasController.addShape);
 
 // Add text
-router.post("/add/text", (req, res) => {
-  res.status(501).json({ error: "add text not implemented yet" });
-});
+router.post("/add/text", canvasController.addText);
 
 // Add image by URL
-router.post("/add/image-url", (req, res) => {
-  res.status(501).json({ error: "add image-url not implemented yet" });
-});
+router.post("/add/image-url", canvasController.addImageByUrl);
 
 // Add image by upload
-router.post("/add/image-upload", (req, res) => {
-  res.status(501).json({ error: "add image-upload not implemented yet" });
-});
+router.post("/add/image-upload", canvasController.addImageByUpload);
 
 // Export canvas as PDF
-router.get("/export/:canvasId", (req, res) => {
-  res.status(501).json({ error: "export not implemented yet" });
-});
+router.get("/export/:canvasId", canvasController.exportCanvasAsPdf);
 
 module.exports = router;
