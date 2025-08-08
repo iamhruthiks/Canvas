@@ -58,8 +58,33 @@ exports.addShape = async (req, res) => {
 };
 
 // Add text
-exports.addText = (req, res) => {
-  res.status(501).json({ error: "add text not implemented yet" });
+exports.addText = async (req, res) => {
+  try {
+    const { canvasId, type, props } = req.body;
+
+    if (!canvasId || !type || !props) {
+      return res
+        .status(400)
+        .json({ error: "canvasId, type, and props are required" });
+    }
+
+    if (type !== "text") {
+      return res.status(400).json({ error: "Invalid type for text element" });
+    }
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    canvas.elements.push({ type, props });
+    await canvas.save();
+
+    res.status(200).json({ message: "Text added successfully", canvas });
+  } catch (err) {
+    console.error("Error adding text:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // Add image by URL
