@@ -28,8 +28,33 @@ exports.initCanvas = async (req, res) => {
 };
 
 // Add a shape
-exports.addShape = (req, res) => {
-  res.status(501).json({ error: "add shape not implemented yet" });
+exports.addShape = async (req, res) => {
+  try {
+    const { canvasId, type, props } = req.body;
+
+    if (!canvasId || !type || !props) {
+      return res
+        .status(400)
+        .json({ error: "canvasId, type, and props are required" });
+    }
+
+    if (!["rectangle", "circle"].includes(type)) {
+      return res.status(400).json({ error: "Invalid shape type" });
+    }
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    canvas.elements.push({ type, props });
+    await canvas.save();
+
+    res.status(200).json({ message: "Shape added successfully", canvas });
+  } catch (err) {
+    console.error("Error adding shape:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // Add text
