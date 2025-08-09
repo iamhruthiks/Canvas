@@ -18,6 +18,10 @@ const Editor = () => {
   const isDrawing = useRef(false);
   const currentPath = useRef([]);
 
+  // Erasing state
+  const isErasing = useRef(false);
+  const erasedPoints = useRef([]);
+
   // Fetch canvas data from backend
   useEffect(() => {
     const fetchCanvas = async () => {
@@ -75,58 +79,101 @@ const Editor = () => {
     ctx.stroke();
   }
 
-  // Pointer event handlers for drawing
+  // Pencil pointer handlers
   const handlePointerDown = (e) => {
-    if (selectedTool !== "pencil") return;
-
-    isDrawing.current = true;
     const { offsetX, offsetY } = e.nativeEvent;
 
-    currentPath.current = [{ x: offsetX, y: offsetY }];
+    if (selectedTool === "pencil") {
+      isDrawing.current = true;
+      currentPath.current = [{ x: offsetX, y: offsetY }];
 
-    const ctx = ctxRef.current;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = brushSize;
-    ctx.beginPath();
-    ctx.moveTo(offsetX, offsetY);
+      const ctx = ctxRef.current;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY);
+    } else if (selectedTool === "eraser") {
+      isErasing.current = true;
+      erasedPoints.current = [{ x: offsetX, y: offsetY }];
+
+      const ctx = ctxRef.current;
+      ctx.clearRect(
+        offsetX - brushSize / 2,
+        offsetY - brushSize / 2,
+        brushSize,
+        brushSize
+      );
+    }
   };
 
   const handlePointerMove = (e) => {
-    if (!isDrawing.current || selectedTool !== "pencil") return;
-
     const { offsetX, offsetY } = e.nativeEvent;
 
-    currentPath.current.push({ x: offsetX, y: offsetY });
+    if (isDrawing.current && selectedTool === "pencil") {
+      currentPath.current.push({ x: offsetX, y: offsetY });
+      const ctx = ctxRef.current;
+      ctx.lineTo(offsetX, offsetY);
+      ctx.stroke();
+    } else if (isErasing.current && selectedTool === "eraser") {
+      erasedPoints.current.push({ x: offsetX, y: offsetY });
 
-    const ctx = ctxRef.current;
-    ctx.lineTo(offsetX, offsetY);
-    ctx.stroke();
+      const ctx = ctxRef.current;
+      ctx.clearRect(
+        offsetX - brushSize / 2,
+        offsetY - brushSize / 2,
+        brushSize,
+        brushSize
+      );
+    }
   };
 
   const handlePointerUp = async () => {
-    if (!isDrawing.current || selectedTool !== "pencil") return;
+    if (isDrawing.current && selectedTool === "pencil") {
+      isDrawing.current = false;
 
-    isDrawing.current = false;
+      try {
+        // Save the path to backend
+        await axios.post(`${API_BASE_URL}/api/v1/canvas/add/shape`, {
+          canvasId,
+          type: "path",
+          props: {
+            points: currentPath.current,
+            color,
+            brushSize,
+          },
+        });
 
-    try {
-      // Send the completed path to backend to save
-      await axios.post(`${API_BASE_URL}/api/v1/canvas/add/shape`, {
-        canvasId,
-        type: "path",
-        props: {
-          points: currentPath.current,
-          color,
-          brushSize,
-        },
-      });
+        // Refresh canvas data
+        const res = await axios.get(
+          `${API_BASE_URL}/api/v1/canvas/${canvasId}`
+        );
+        setCanvasData(res.data);
 
-      // Update canvasData locally by fetching again to reflect new element
-      const res = await axios.get(`${API_BASE_URL}/api/v1/canvas/${canvasId}`);
-      setCanvasData(res.data);
+        currentPath.current = [];
+      } catch (error) {
+        console.error("Failed to save path:", error);
+      }
+    } else if (isErasing.current && selectedTool === "eraser") {
+      isErasing.current = false;
 
-      currentPath.current = [];
-    } catch (error) {
-      console.error("Failed to save path:", error);
+      try {
+        // Send erased points to backend to update elements
+        await axios.post(`${API_BASE_URL}/api/v1/canvas/erase-points`, {
+          canvasId,
+          erasedPoints: erasedPoints.current,
+          eraserSize: brushSize,
+        });
+
+        // Refresh canvas data
+        const res = await axios.get(
+          `${API_BASE_URL}/api/v1/canvas/${canvasId}`
+        );
+        setCanvasData(res.data);
+
+        erasedPoints.current = [];
+      } catch (error) {
+        console.error("Failed to erase points:", error);
+      }
     }
   };
 
@@ -175,6 +222,7 @@ const Editor = () => {
           className="color-picker"
           value={color}
           onChange={(e) => setColor(e.target.value)}
+          disabled={selectedTool === "eraser"}
         />
         <input
           type="range"
