@@ -158,9 +158,7 @@ exports.erasePoints = async (req, res) => {
               points: filteredPoints,
             },
           };
-        }
-        // For rectangles, remove if erased point is inside or near (within tolerance)
-        else if (element.type === "rectangle") {
+        } else if (element.type === "rectangle") {
           const { x, y, width, height } = element.props;
           const isErased = erasedPoints.some((ep) => {
             return (
@@ -171,15 +169,12 @@ exports.erasePoints = async (req, res) => {
             );
           });
           if (isErased) {
-            // Return null to filter out later
             return null;
           }
           return element;
-        }
-        // For circles, remove if erased point is inside or near (within tolerance)
-        else if (element.type === "circle") {
+        } else if (element.type === "circle") {
           const { x, y, radius } = element.props;
-          const r = radius || 10; // fallback radius
+          const r = radius || 10;
           const isErased = erasedPoints.some((ep) => {
             const dx = ep.x - x;
             const dy = ep.y - y;
@@ -190,11 +185,28 @@ exports.erasePoints = async (req, res) => {
             return null;
           }
           return element;
+        } else if (element.type === "text") {
+          const { x, y, fontSize = 20, text = "" } = element.props;
+          // Approximate bounding box for text
+          const approxWidth = text.length * fontSize * 0.6;
+          const approxHeight = fontSize;
+
+          const isErased = erasedPoints.some((ep) => {
+            return (
+              ep.x >= x - tolerance &&
+              ep.x <= x + approxWidth + tolerance &&
+              ep.y >= y - tolerance &&
+              ep.y <= y + approxHeight + tolerance
+            );
+          });
+
+          if (isErased) {
+            return null;
+          }
+          return element;
         }
-        // For other element types (text, image), keep as is
         return element;
       })
-      // Remove null elements and any empty paths (no points)
       .filter(
         (el) =>
           el !== null && !(el.type === "path" && el.props.points.length === 0)
