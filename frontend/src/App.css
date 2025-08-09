@@ -215,3 +215,26 @@
   font-size: 1rem;
   color: #666;
 }
+
+.app-footer {
+  position: fixed;
+  z-index: -1;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  padding: 10px 0;
+  text-align: center;
+}
+
+.app-footer p {
+  margin: 0;
+}
+
+/* Optional: make it smaller on mobile */
+@media (max-width: 480px) {
+  .app-footer {
+    font-size: 12px;
+    padding: 8px;
+  }
+}

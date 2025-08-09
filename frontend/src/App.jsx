@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Editor from "./pages/Editor";
 import "./App.css";
+import Footer from "./components/Footer";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/editor/:canvasId" element={<Editor />} />
       </Routes>
+      <Footer />
     </Router>
   );
 }
