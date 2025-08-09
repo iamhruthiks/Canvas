@@ -72,7 +72,7 @@ exports.addShape = async (req, res) => {
         .json({ error: "canvasId, type, and props are required" });
     }
 
-    if (!["rectangle", "circle"].includes(type)) {
+    if (!["rectangle", "circle", "path"].includes(type)) {
       return res.status(400).json({ error: "Invalid shape type" });
     }
 

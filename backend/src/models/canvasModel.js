@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const elementSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["rectangle", "circle", "text", "image"],
+    enum: ["rectangle", "circle", "text", "image", "path"],
     required: true,
   },
   props: {
