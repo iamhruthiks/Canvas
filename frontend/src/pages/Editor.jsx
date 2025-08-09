@@ -27,6 +27,11 @@ const Editor = () => {
   const rectStart = useRef({ x: 0, y: 0 });
   const rectCurrent = useRef({ x: 0, y: 0 });
 
+  // Circle drawing
+  const isDrawingCircle = useRef(false);
+  const circleStart = useRef({ x: 0, y: 0 });
+  const circleCurrent = useRef({ x: 0, y: 0 });
+
   // Fetch canvas data
   useEffect(() => {
     const fetchCanvas = async () => {
@@ -62,6 +67,8 @@ const Editor = () => {
         drawPath(ctx, element.props);
       } else if (element.type === "rectangle") {
         drawRectangle(ctx, element.props);
+      } else if (element.type === "circle") {
+        drawCircle(ctx, element.props);
       }
     });
   }, [canvasData]);
@@ -87,6 +94,17 @@ const Editor = () => {
     ctx.strokeStyle = color;
     ctx.lineWidth = brushSize;
     ctx.strokeRect(x, y, width, height);
+  }
+
+  function drawCircle(ctx, props) {
+    const { x, y, radius = 0, color = "#000", brushSize = 1 } = props;
+    if (radius === 0) return;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.stroke();
   }
 
   const handlePointerDown = (e) => {
@@ -116,6 +134,10 @@ const Editor = () => {
       isDrawingRect.current = true;
       rectStart.current = { x: offsetX, y: offsetY };
       rectCurrent.current = { x: offsetX, y: offsetY };
+    } else if (selectedTool === "circle") {
+      isDrawingCircle.current = true;
+      circleStart.current = { x: offsetX, y: offsetY };
+      circleCurrent.current = { x: offsetX, y: offsetY };
     }
   };
 
@@ -145,6 +167,8 @@ const Editor = () => {
           drawPath(ctx, element.props);
         } else if (element.type === "rectangle") {
           drawRectangle(ctx, element.props);
+        } else if (element.type === "circle") {
+          drawCircle(ctx, element.props);
         }
       });
 
@@ -156,6 +180,33 @@ const Editor = () => {
       ctx.strokeStyle = color;
       ctx.lineWidth = brushSize;
       ctx.strokeRect(startX, startY, width, height);
+    } else if (isDrawingCircle.current && selectedTool === "circle") {
+      circleCurrent.current = { x: offsetX, y: offsetY };
+
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+      canvasData.elements.forEach((element) => {
+        if (element.type === "path") {
+          drawPath(ctx, element.props);
+        } else if (element.type === "rectangle") {
+          drawRectangle(ctx, element.props);
+        } else if (element.type === "circle") {
+          drawCircle(ctx, element.props);
+        }
+      });
+
+      const startX = circleStart.current.x;
+      const startY = circleStart.current.y;
+
+      const dx = offsetX - startX;
+      const dy = offsetY - startY;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.beginPath();
+      ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+      ctx.stroke();
     }
   };
 
@@ -229,6 +280,38 @@ const Editor = () => {
         setCanvasData(res.data);
       } catch (error) {
         console.error("Failed to save rectangle:", error);
+      }
+    } else if (isDrawingCircle.current && selectedTool === "circle") {
+      isDrawingCircle.current = false;
+
+      const startX = circleStart.current.x;
+      const startY = circleStart.current.y;
+      const endX = circleCurrent.current.x;
+      const endY = circleCurrent.current.y;
+
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+
+      try {
+        await axios.post(`${API_BASE_URL}/api/v1/canvas/add/shape`, {
+          canvasId,
+          type: "circle",
+          props: {
+            x: startX,
+            y: startY,
+            radius,
+            color,
+            brushSize,
+          },
+        });
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/v1/canvas/${canvasId}`
+        );
+        setCanvasData(res.data);
+      } catch (error) {
+        console.error("Failed to save circle:", error);
       }
     }
   };
