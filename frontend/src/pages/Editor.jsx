@@ -69,6 +69,8 @@ const Editor = () => {
         drawRectangle(ctx, element.props);
       } else if (element.type === "circle") {
         drawCircle(ctx, element.props);
+      } else if (element.type === "text") {
+        drawText(ctx, element.props);
       }
     });
   }, [canvasData]);
@@ -107,7 +109,18 @@ const Editor = () => {
     ctx.stroke();
   }
 
-  const handlePointerDown = (e) => {
+  function drawText(ctx, props) {
+    const { x, y, text = "", color = "#000", fontSize = 20 } = props;
+    if (!text) return;
+
+    ctx.fillStyle = color;
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.fillText(text, x, y);
+  }
+
+  // Pointer handlers
+  const handlePointerDown = async (e) => {
     const { offsetX, offsetY } = e.nativeEvent;
 
     if (selectedTool === "pencil") {
@@ -138,6 +151,33 @@ const Editor = () => {
       isDrawingCircle.current = true;
       circleStart.current = { x: offsetX, y: offsetY };
       circleCurrent.current = { x: offsetX, y: offsetY };
+    } else if (selectedTool === "text") {
+      // Prompt user to enter text on click position
+      const userText = prompt("Enter text:");
+      if (userText && userText.trim() !== "") {
+        // Save text shape to backend
+        try {
+          await axios.post(`${API_BASE_URL}/api/v1/canvas/add/text`, {
+            canvasId,
+            type: "text",
+            props: {
+              x: offsetX,
+              y: offsetY,
+              text: userText.trim(),
+              color,
+              fontSize: brushSize,
+            },
+          });
+          // Refresh canvas data after adding text
+          const res = await axios.get(
+            `${API_BASE_URL}/api/v1/canvas/${canvasId}`
+          );
+          setCanvasData(res.data);
+        } catch (error) {
+          console.error("Failed to save text:", error);
+          alert("Failed to save text. Please try again.");
+        }
+      }
     }
   };
 
@@ -169,6 +209,8 @@ const Editor = () => {
           drawRectangle(ctx, element.props);
         } else if (element.type === "circle") {
           drawCircle(ctx, element.props);
+        } else if (element.type === "text") {
+          drawText(ctx, element.props);
         }
       });
 
@@ -192,6 +234,8 @@ const Editor = () => {
           drawRectangle(ctx, element.props);
         } else if (element.type === "circle") {
           drawCircle(ctx, element.props);
+        } else if (element.type === "text") {
+          drawText(ctx, element.props);
         }
       });
 
