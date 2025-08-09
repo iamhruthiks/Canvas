@@ -13,6 +13,7 @@ const Editor = () => {
 
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Pencil drawing
   const isDrawing = useRef(false);
@@ -360,6 +361,45 @@ const Editor = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("canvasId", canvasId);
+    formData.append("type", "image");
+
+    formData.append(
+      "props",
+      JSON.stringify({
+        x: 50,
+        y: 50,
+        width: 200,
+        height: 200,
+      })
+    );
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/v1/canvas/add/image-upload`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      const res = await axios.get(`${API_BASE_URL}/api/v1/canvas/${canvasId}`);
+      setCanvasData(res.data);
+    } catch (error) {
+      console.error("Failed to upload image:", error);
+      alert("Failed to upload image");
+    }
+
+    // Reset the input so you can upload the same file again if needed
+    e.target.value = "";
+  };
+
   const navigate = useNavigate();
 
   const handleDeleteCanvas = async (e, canvasId) => {
@@ -378,6 +418,211 @@ const Editor = () => {
       alert("Failed to delete canvas. Please try again.");
     }
   };
+
+  // State for dragging
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  // State for resizing
+  const [resizingId, setResizingId] = useState(null);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  // Drag start
+  const onDragStart = (e, id) => {
+    e.stopPropagation();
+    setDraggingId(id);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  // Drag move
+  const onDrag = (e) => {
+    if (!draggingId) return;
+    e.preventDefault();
+
+    const container = document.getElementById("canvas-container");
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+
+    const element = canvasData.elements.find((el) => el._id === draggingId);
+    if (!element) return;
+
+    const maxX = containerRect.width - element.props.width;
+    const maxY = containerRect.height - element.props.height;
+
+    let newX = e.clientX - containerRect.left - dragOffset.x;
+    let newY = e.clientY - containerRect.top - dragOffset.y;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    setCanvasData((prev) => {
+      const newElements = prev.elements.map((el) => {
+        if (el._id === draggingId) {
+          return {
+            ...el,
+            props: {
+              ...el.props,
+              x: newX,
+              y: newY,
+            },
+          };
+        }
+        return el;
+      });
+      return { ...prev, elements: newElements };
+    });
+  };
+
+  // Drag end - save to backend
+  const onDragEnd = async () => {
+    if (!draggingId) return;
+
+    const element = canvasData.elements.find((el) => el._id === draggingId);
+    if (!element) {
+      setDraggingId(null);
+      return;
+    }
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/v1/canvas/update/image-props`, {
+        canvasId,
+        elementId: draggingId,
+        props: {
+          x: element.props.x,
+          y: element.props.y,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to update image position:", error);
+      alert("Failed to save image position");
+    }
+
+    setDraggingId(null);
+  };
+
+  // Resize start
+  const onResizeStart = (e, id) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizingId(id);
+
+    const element = canvasData.elements.find((el) => el._id === id);
+    if (!element) return;
+
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({
+      width: element.props.width,
+      height: element.props.height,
+    });
+  };
+
+  // Resize move
+  const onResize = (e) => {
+    if (!resizingId) return;
+    e.preventDefault();
+
+    const deltaX = e.clientX - resizeStartPos.x;
+    const deltaY = e.clientY - resizeStartPos.y;
+
+    setCanvasData((prev) => {
+      const newElements = prev.elements.map((el) => {
+        if (el._id === resizingId) {
+          // Clamp max width and height so image does not overflow canvas bounds
+          const maxWidth = prev.width - el.props.x;
+          const maxHeight = prev.height - el.props.y;
+
+          const newWidth = Math.min(
+            Math.max(20, resizeStartSize.width + deltaX),
+            maxWidth
+          );
+          const newHeight = Math.min(
+            Math.max(20, resizeStartSize.height + deltaY),
+            maxHeight
+          );
+
+          return {
+            ...el,
+            props: {
+              ...el.props,
+              width: newWidth,
+              height: newHeight,
+            },
+          };
+        }
+        return el;
+      });
+      return { ...prev, elements: newElements };
+    });
+  };
+
+  // Resize end - save to backend
+  const onResizeEnd = async () => {
+    if (!resizingId) return;
+
+    const element = canvasData.elements.find((el) => el._id === resizingId);
+    if (!element) {
+      setResizingId(null);
+      return;
+    }
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/v1/canvas/update/image-props`, {
+        canvasId,
+        elementId: resizingId,
+        props: {
+          width: element.props.width,
+          height: element.props.height,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to update image size:", error);
+      alert("Failed to save image size");
+    }
+
+    setResizingId(null);
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (draggingId) {
+        onDrag(e);
+      } else if (resizingId) {
+        onResize(e);
+      }
+    };
+
+    const onMouseUp = () => {
+      if (draggingId) {
+        onDragEnd();
+      }
+      if (resizingId) {
+        onResizeEnd();
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [
+    draggingId,
+    resizingId,
+    dragOffset,
+    resizeStartPos,
+    resizeStartSize,
+    canvasData,
+  ]);
 
   return (
     <div className="editor-page">
@@ -414,10 +659,20 @@ const Editor = () => {
         </button>
         <button
           className={selectedTool === "image" ? "active" : ""}
-          onClick={() => setSelectedTool("image")}
+          onClick={() => {
+            setSelectedTool("image");
+            fileInputRef.current.click();
+          }}
         >
           Image
         </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          accept="image/*"
+          onChange={handleImageUpload}
+        />
 
         <input
           type="color"
@@ -453,13 +708,18 @@ const Editor = () => {
         </button>
       </div>
 
-      <div className="canvas-wrapper">
+      <div
+        id="canvas-container"
+        className="canvas-wrapper"
+        style={{ position: "relative" }}
+      >
         <div className="canvas-info">
           <h2>{canvasData?.name || "Untitled Canvas"}</h2>
           <p>
             Dimensions: {canvasData?.width}px × {canvasData?.height}px
           </p>
         </div>
+
         <canvas
           ref={canvasRef}
           id="canvas"
@@ -469,7 +729,60 @@ const Editor = () => {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
           style={{ border: "1px solid #ccc", touchAction: "none" }}
+          width={canvasData?.width}
+          height={canvasData?.height}
         />
+
+        {canvasData?.elements
+          .filter((el) => el.type === "image")
+          .map((el) => (
+            <div
+              key={el._id}
+              style={{
+                position: "absolute",
+                left: el.props.x,
+                top: el.props.y,
+                width: el.props.width,
+                height: el.props.height,
+                cursor: draggingId === el._id ? "grabbing" : "grab",
+                boxSizing: "border-box",
+                border:
+                  draggingId === el._id || resizingId === el._id
+                    ? "2px solid blue"
+                    : "none",
+                userSelect: "none",
+                touchAction: "none",
+                zIndex: 20, // above canvas
+              }}
+              onMouseDown={(e) => onDragStart(e, el._id)}
+            >
+              <img
+                src={el.props.url}
+                alt="canvas-img"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  display: "block",
+                }}
+                draggable={false}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: 0,
+                  width: 15,
+                  height: 15,
+                  background: "blue",
+                  cursor: "se-resize",
+                  userSelect: "none",
+                }}
+                onMouseDown={(e) => onResizeStart(e, el._id)}
+              />
+            </div>
+          ))}
       </div>
     </div>
   );
