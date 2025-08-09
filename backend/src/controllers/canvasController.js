@@ -358,7 +358,6 @@ exports.updateImageProps = async (req, res) => {
 exports.exportCanvasAsPdf = async (req, res) => {
   try {
     const { canvasId } = req.params;
-
     const canvas = await Canvas.findById(canvasId);
     if (!canvas) {
       return res.status(404).json({ error: "Canvas not found" });
@@ -380,17 +379,29 @@ exports.exportCanvasAsPdf = async (req, res) => {
     for (const element of canvas.elements) {
       const { type, props } = element;
 
-      if (type === "rectangle") {
+      if (type === "path") {
+        if (!props.points || props.points.length < 2) continue;
+        doc
+          .moveTo(props.points[0].x, props.points[0].y)
+          .lineWidth(props.brushSize || 1)
+          .strokeColor(props.color || "black");
+
+        for (let i = 1; i < props.points.length; i++) {
+          doc.lineTo(props.points[i].x, props.points[i].y);
+        }
+        doc.stroke();
+      } else if (type === "rectangle") {
         doc
           .rect(props.x, props.y, props.width, props.height)
-          .fillColor(props.color || "black")
-          .fill();
+          .lineWidth(props.brushSize || 1)
+          .strokeColor(props.color || "black")
+          .stroke();
       } else if (type === "circle") {
-        const radius = props.radius || 10;
         doc
-          .circle(props.x, props.y, radius)
-          .fillColor(props.color || "black")
-          .fill();
+          .circle(props.x, props.y, props.radius || 0)
+          .lineWidth(props.brushSize || 1)
+          .strokeColor(props.color || "black")
+          .stroke();
       } else if (type === "text") {
         doc
           .fillColor(props.color || "black")
@@ -403,7 +414,6 @@ exports.exportCanvasAsPdf = async (req, res) => {
               responseType: "arraybuffer",
             });
             const imgBuffer = Buffer.from(response.data, "binary");
-
             doc.image(imgBuffer, props.x, props.y, {
               width: props.width,
               height: props.height,
