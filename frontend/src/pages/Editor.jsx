@@ -673,7 +673,6 @@ const Editor = () => {
           accept="image/*"
           onChange={handleImageUpload}
         />
-
         <input
           type="color"
           className="color-picker"
