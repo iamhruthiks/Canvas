@@ -1,5 +1,7 @@
 const Canvas = require("../models/canvasModel");
 const cloudinary = require("../config/cloudinaryConfig");
+const PDFDocument = require("pdfkit");
+const axios = require("axios");
 
 // Initialize a new canvas
 exports.initCanvas = async (req, res) => {
@@ -181,6 +183,69 @@ exports.addImageByUpload = async (req, res) => {
 };
 
 // Export canvas as PDF
-exports.exportCanvasAsPdf = (req, res) => {
-  res.status(501).json({ error: "export not implemented yet" });
+exports.exportCanvasAsPdf = async (req, res) => {
+  try {
+    const { canvasId } = req.params;
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    const doc = new PDFDocument({
+      size: [canvas.width, canvas.height],
+      margin: 0,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=canvas_${canvasId}.pdf`
+    );
+
+    doc.pipe(res);
+
+    for (const element of canvas.elements) {
+      const { type, props } = element;
+
+      if (type === "rectangle") {
+        doc
+          .rect(props.x, props.y, props.width, props.height)
+          .fillColor(props.color || "black")
+          .fill();
+      } else if (type === "circle") {
+        const radius = props.radius || 10;
+        doc
+          .circle(props.x, props.y, radius)
+          .fillColor(props.color || "black")
+          .fill();
+      } else if (type === "text") {
+        doc
+          .fillColor(props.color || "black")
+          .fontSize(props.fontSize || 12)
+          .text(props.text || "", props.x, props.y);
+      } else if (type === "image") {
+        if (props.url) {
+          try {
+            const response = await axios.get(props.url, {
+              responseType: "arraybuffer",
+            });
+            const imgBuffer = Buffer.from(response.data, "binary");
+
+            doc.image(imgBuffer, props.x, props.y, {
+              width: props.width,
+              height: props.height,
+            });
+          } catch (error) {
+            console.error("Error loading image for PDF:", error);
+          }
+        }
+      }
+    }
+
+    doc.end();
+  } catch (error) {
+    console.error("Error exporting PDF:", error);
+    res.status(500).json({ error: "Failed to export PDF" });
+  }
 };
