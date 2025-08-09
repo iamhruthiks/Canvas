@@ -11,6 +11,9 @@ router.get("/", (req, res) => {
 // Get all canvases
 router.get("/all", canvasController.getAllCanvases);
 
+// Get a single canvas by ID
+router.get("/:canvasId", canvasController.getCanvasById);
+
 // Initialize a new canvas
 router.post("/init", canvasController.initCanvas);
 

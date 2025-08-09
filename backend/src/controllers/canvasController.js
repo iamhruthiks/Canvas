@@ -44,6 +44,23 @@ exports.initCanvas = async (req, res) => {
   }
 };
 
+// Get a single canvas by ID
+exports.getCanvasById = async (req, res) => {
+  try {
+    const { canvasId } = req.params;
+    const canvas = await Canvas.findById(canvasId);
+
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    res.status(200).json(canvas);
+  } catch (err) {
+    console.error("Error fetching canvas:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // Add a shape
 exports.addShape = async (req, res) => {
   try {
