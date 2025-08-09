@@ -6,13 +6,16 @@ const axios = require("axios");
 // Initialize a new canvas
 exports.initCanvas = async (req, res) => {
   try {
-    const { width, height } = req.body;
+    const { name, width, height } = req.body;
 
-    if (!width || !height) {
-      return res.status(400).json({ error: "Width and height are required" });
+    if (!name || !width || !height) {
+      return res
+        .status(400)
+        .json({ error: "Name , width and height are required" });
     }
 
     const newCanvas = new Canvas({
+      name,
       width,
       height,
       elements: [],
