@@ -14,15 +14,20 @@ const Editor = () => {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
 
-  // Drawing state
+  // Pencil drawing
   const isDrawing = useRef(false);
   const currentPath = useRef([]);
 
-  // Erasing state
+  // Eraser
   const isErasing = useRef(false);
   const erasedPoints = useRef([]);
 
-  // Fetch canvas data from backend
+  // Rectangle drawing
+  const isDrawingRect = useRef(false);
+  const rectStart = useRef({ x: 0, y: 0 });
+  const rectCurrent = useRef({ x: 0, y: 0 });
+
+  // Fetch canvas data
   useEffect(() => {
     const fetchCanvas = async () => {
       try {
@@ -37,7 +42,7 @@ const Editor = () => {
     fetchCanvas();
   }, [canvasId, API_BASE_URL]);
 
-  // Setup canvas and redraw existing elements when canvasData changes
+  // Setup canvas and redraw elements
   useEffect(() => {
     if (!canvasData) return;
 
@@ -50,21 +55,17 @@ const Editor = () => {
     ctx.lineJoin = "round";
     ctxRef.current = ctx;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Redraw saved elements (only "path" for now)
-    if (canvasData.elements && canvasData.elements.length > 0) {
-      canvasData.elements.forEach((element) => {
-        if (element.type === "path") {
-          drawPath(ctx, element.props);
-        }
-        // TODO: Add drawing for other types later (rectangle, circle, etc.)
-      });
-    }
+    canvasData.elements.forEach((element) => {
+      if (element.type === "path") {
+        drawPath(ctx, element.props);
+      } else if (element.type === "rectangle") {
+        drawRectangle(ctx, element.props);
+      }
+    });
   }, [canvasData]);
 
-  // Function to draw a path (stroke) on canvas context
   function drawPath(ctx, props) {
     const { points, color = "#000", brushSize = 5 } = props;
     if (!points || points.length === 0) return;
@@ -79,7 +80,15 @@ const Editor = () => {
     ctx.stroke();
   }
 
-  // Pencil pointer handlers
+  function drawRectangle(ctx, props) {
+    const { x, y, width, height, color = "#000", brushSize = 1 } = props;
+    if (width === 0 || height === 0) return;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
+    ctx.strokeRect(x, y, width, height);
+  }
+
   const handlePointerDown = (e) => {
     const { offsetX, offsetY } = e.nativeEvent;
 
@@ -103,36 +112,57 @@ const Editor = () => {
         brushSize,
         brushSize
       );
+    } else if (selectedTool === "rectangle") {
+      isDrawingRect.current = true;
+      rectStart.current = { x: offsetX, y: offsetY };
+      rectCurrent.current = { x: offsetX, y: offsetY };
     }
   };
 
   const handlePointerMove = (e) => {
     const { offsetX, offsetY } = e.nativeEvent;
+    const ctx = ctxRef.current;
 
     if (isDrawing.current && selectedTool === "pencil") {
       currentPath.current.push({ x: offsetX, y: offsetY });
-      const ctx = ctxRef.current;
       ctx.lineTo(offsetX, offsetY);
       ctx.stroke();
     } else if (isErasing.current && selectedTool === "eraser") {
       erasedPoints.current.push({ x: offsetX, y: offsetY });
-
-      const ctx = ctxRef.current;
       ctx.clearRect(
         offsetX - brushSize / 2,
         offsetY - brushSize / 2,
         brushSize,
         brushSize
       );
+    } else if (isDrawingRect.current && selectedTool === "rectangle") {
+      rectCurrent.current = { x: offsetX, y: offsetY };
+
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+      canvasData.elements.forEach((element) => {
+        if (element.type === "path") {
+          drawPath(ctx, element.props);
+        } else if (element.type === "rectangle") {
+          drawRectangle(ctx, element.props);
+        }
+      });
+
+      const startX = rectStart.current.x;
+      const startY = rectStart.current.y;
+      const width = offsetX - startX;
+      const height = offsetY - startY;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.strokeRect(startX, startY, width, height);
     }
   };
 
   const handlePointerUp = async () => {
     if (isDrawing.current && selectedTool === "pencil") {
       isDrawing.current = false;
-
       try {
-        // Save the path to backend
         await axios.post(`${API_BASE_URL}/api/v1/canvas/add/shape`, {
           canvasId,
           type: "path",
@@ -142,37 +172,63 @@ const Editor = () => {
             brushSize,
           },
         });
-
-        // Refresh canvas data
         const res = await axios.get(
           `${API_BASE_URL}/api/v1/canvas/${canvasId}`
         );
         setCanvasData(res.data);
-
         currentPath.current = [];
       } catch (error) {
         console.error("Failed to save path:", error);
       }
     } else if (isErasing.current && selectedTool === "eraser") {
       isErasing.current = false;
-
       try {
-        // Send erased points to backend to update elements
         await axios.post(`${API_BASE_URL}/api/v1/canvas/erase-points`, {
           canvasId,
           erasedPoints: erasedPoints.current,
           eraserSize: brushSize,
         });
-
-        // Refresh canvas data
         const res = await axios.get(
           `${API_BASE_URL}/api/v1/canvas/${canvasId}`
         );
         setCanvasData(res.data);
-
         erasedPoints.current = [];
       } catch (error) {
         console.error("Failed to erase points:", error);
+      }
+    } else if (isDrawingRect.current && selectedTool === "rectangle") {
+      isDrawingRect.current = false;
+
+      const startX = rectStart.current.x;
+      const startY = rectStart.current.y;
+      const endX = rectCurrent.current.x;
+      const endY = rectCurrent.current.y;
+
+      const x = Math.min(startX, endX);
+      const y = Math.min(startY, endY);
+      const width = Math.abs(endX - startX);
+      const height = Math.abs(endY - startY);
+
+      try {
+        await axios.post(`${API_BASE_URL}/api/v1/canvas/add/shape`, {
+          canvasId,
+          type: "rectangle",
+          props: {
+            x,
+            y,
+            width,
+            height,
+            color,
+            brushSize,
+          },
+        });
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/v1/canvas/${canvasId}`
+        );
+        setCanvasData(res.data);
+      } catch (error) {
+        console.error("Failed to save rectangle:", error);
       }
     }
   };
