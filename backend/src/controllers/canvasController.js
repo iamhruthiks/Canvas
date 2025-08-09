@@ -121,6 +121,56 @@ exports.addText = async (req, res) => {
   }
 };
 
+// Update erased points
+exports.erasePoints = async (req, res) => {
+  try {
+    const { canvasId, erasedPoints, eraserSize = 10 } = req.body;
+
+    if (!canvasId || !erasedPoints || !Array.isArray(erasedPoints)) {
+      return res
+        .status(400)
+        .json({ error: "canvasId and erasedPoints are required" });
+    }
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    const tolerance = eraserSize; // use provided eraser size
+
+    canvas.elements = canvas.elements
+      .map((element) => {
+        if (element.type === "path" && element.props.points) {
+          const filteredPoints = element.props.points.filter((p) => {
+            return !erasedPoints.some((ep) => {
+              const dx = ep.x - p.x;
+              const dy = ep.y - p.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              return dist <= tolerance;
+            });
+          });
+          return {
+            ...element,
+            props: {
+              ...element.props,
+              points: filteredPoints,
+            },
+          };
+        }
+        return element;
+      })
+      .filter((el) => !(el.type === "path" && el.props.points.length === 0));
+
+    await canvas.save();
+
+    res.status(200).json({ message: "Points erased successfully", canvas });
+  } catch (error) {
+    console.error("Error erasing points:", error);
+    res.status(500).json({ error: "Server error erasing points" });
+  }
+};
+
 // Add image by URL
 exports.addImageByUrl = async (req, res) => {
   try {

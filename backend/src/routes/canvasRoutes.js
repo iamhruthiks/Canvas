@@ -20,6 +20,9 @@ router.post("/init", canvasController.initCanvas);
 // Add a shape
 router.post("/add/shape", canvasController.addShape);
 
+// Update erased points
+router.post("/erase-points", canvasController.erasePoints);
+
 // Add text
 router.post("/add/text", canvasController.addText);
 
