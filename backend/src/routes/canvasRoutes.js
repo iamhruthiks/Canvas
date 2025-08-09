@@ -36,6 +36,9 @@ router.post(
   canvasController.addImageByUpload
 );
 
+// Update image props
+router.post("/update/image-props", canvasController.updateImageProps);
+
 // Export canvas as PDF
 router.get("/export/:canvasId", canvasController.exportCanvasAsPdf);
 

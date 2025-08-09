@@ -2,6 +2,7 @@ const Canvas = require("../models/canvasModel");
 const cloudinary = require("../config/cloudinaryConfig");
 const PDFDocument = require("pdfkit");
 const axios = require("axios");
+const mongoose = require("mongoose");
 
 // Get all canvases
 exports.getAllCanvases = async (req, res) => {
@@ -310,6 +311,46 @@ exports.addImageByUpload = async (req, res) => {
   } catch (err) {
     console.error("Error uploading image:", err);
     res.status(500).json({ error: "Server error" });
+  }
+};
+
+// Update image props
+exports.updateImageProps = async (req, res) => {
+  try {
+    const { canvasId, elementId, props } = req.body;
+
+    if (!canvasId || !elementId || !props) {
+      return res
+        .status(400)
+        .json({ error: "canvasId, elementId, and props are required" });
+    }
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    // Find the element by _id (elementId)
+    const element = canvas.elements.id(elementId);
+    if (!element) {
+      return res.status(404).json({ error: "Element not found" });
+    }
+
+    if (element.type !== "image") {
+      return res.status(400).json({ error: "Element is not an image" });
+    }
+
+    // Update the element's props with new props (x, y, width, height etc)
+    element.props = { ...element.props, ...props };
+
+    await canvas.save();
+
+    return res
+      .status(200)
+      .json({ message: "Image updated successfully", canvas });
+  } catch (err) {
+    console.error("Error updating image props:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 };
 
