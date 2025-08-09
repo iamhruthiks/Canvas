@@ -137,11 +137,12 @@ exports.erasePoints = async (req, res) => {
       return res.status(404).json({ error: "Canvas not found" });
     }
 
-    const tolerance = eraserSize; // use provided eraser size
+    const tolerance = eraserSize;
 
     canvas.elements = canvas.elements
       .map((element) => {
         if (element.type === "path" && element.props.points) {
+          // Partially erase points near erasedPoints
           const filteredPoints = element.props.points.filter((p) => {
             return !erasedPoints.some((ep) => {
               const dx = ep.x - p.x;
@@ -158,9 +159,46 @@ exports.erasePoints = async (req, res) => {
             },
           };
         }
+        // For rectangles, remove if erased point is inside or near (within tolerance)
+        else if (element.type === "rectangle") {
+          const { x, y, width, height } = element.props;
+          const isErased = erasedPoints.some((ep) => {
+            return (
+              ep.x >= x - tolerance &&
+              ep.x <= x + width + tolerance &&
+              ep.y >= y - tolerance &&
+              ep.y <= y + height + tolerance
+            );
+          });
+          if (isErased) {
+            // Return null to filter out later
+            return null;
+          }
+          return element;
+        }
+        // For circles, remove if erased point is inside or near (within tolerance)
+        else if (element.type === "circle") {
+          const { x, y, radius } = element.props;
+          const r = radius || 10; // fallback radius
+          const isErased = erasedPoints.some((ep) => {
+            const dx = ep.x - x;
+            const dy = ep.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist <= r + tolerance;
+          });
+          if (isErased) {
+            return null;
+          }
+          return element;
+        }
+        // For other element types (text, image), keep as is
         return element;
       })
-      .filter((el) => !(el.type === "path" && el.props.points.length === 0));
+      // Remove null elements and any empty paths (no points)
+      .filter(
+        (el) =>
+          el !== null && !(el.type === "path" && el.props.points.length === 0)
+      );
 
     await canvas.save();
 
