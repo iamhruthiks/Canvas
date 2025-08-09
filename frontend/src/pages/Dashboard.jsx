@@ -38,6 +38,24 @@ const Dashboard = () => {
     navigate(`/editor/${id}`);
   };
 
+  // DELETE canvas handler
+  const handleDeleteCanvas = async (e, canvasId) => {
+    e.stopPropagation();
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this canvas?"
+    );
+    if (!confirmed) return;
+
+    try {
+      await axios.delete(`${API_BASE_URL}/api/v1/canvas/delete/${canvasId}`);
+      fetchCanvases(); // Refresh list after delete
+    } catch (err) {
+      console.error("Failed to delete canvas:", err);
+      alert("Failed to delete canvas. Please try again.");
+    }
+  };
+
   const handleCreateCanvas = async () => {
     if (!newCanvas.name.trim()) {
       return alert("Please enter a name");
@@ -101,9 +119,34 @@ const Dashboard = () => {
             key={canvas._id}
             className="col-12 col-md-4 mb-4"
             onClick={() => handleCardClick(canvas._id)}
-            style={{ cursor: "pointer" }}
+            style={{ cursor: "pointer", position: "relative" }}
           >
-            <div className="dashboard-card shadow">
+            <div
+              className="dashboard-card shadow"
+              style={{ position: "relative" }}
+            >
+              {/* Red Delete Button */}
+              <button
+                onClick={(e) => handleDeleteCanvas(e, canvas._id)}
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  backgroundColor: "#eb4848ff",
+                  color: "white",
+                  border: "none",
+                  padding: "5px 10px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  zIndex: 10,
+                }}
+                title="Delete Canvas"
+                aria-label="Delete Canvas"
+              >
+                Delete
+              </button>
+
               <p className="canvas-name">{canvas.name || "Untitled"}</p>
             </div>
           </div>

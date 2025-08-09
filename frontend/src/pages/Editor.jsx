@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 const Editor = () => {
   const { canvasId } = useParams();
@@ -360,6 +360,25 @@ const Editor = () => {
     }
   };
 
+  const navigate = useNavigate();
+
+  const handleDeleteCanvas = async (e, canvasId) => {
+    e.stopPropagation();
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this canvas?"
+    );
+    if (!confirmed) return;
+
+    try {
+      await axios.delete(`${API_BASE_URL}/api/v1/canvas/delete/${canvasId}`);
+      navigate(`/dashboard`);
+    } catch (err) {
+      console.error("Failed to delete canvas:", err);
+      alert("Failed to delete canvas. Please try again.");
+    }
+  };
+
   return (
     <div className="editor-page">
       <div className="editor-toolbar">
@@ -415,6 +434,23 @@ const Editor = () => {
           value={brushSize}
           onChange={(e) => setBrushSize(Number(e.target.value))}
         />
+        <button
+          onClick={(e) => handleDeleteCanvas(e, canvasId)}
+          style={{
+            backgroundColor: "#eb4848ff",
+            color: "white",
+            border: "none",
+            padding: "5px 10px",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            zIndex: 10,
+          }}
+          title="Delete Canvas"
+          aria-label="Delete Canvas"
+        >
+          Delete
+        </button>
       </div>
 
       <div className="canvas-wrapper">
