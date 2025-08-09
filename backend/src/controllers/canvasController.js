@@ -3,6 +3,17 @@ const cloudinary = require("../config/cloudinaryConfig");
 const PDFDocument = require("pdfkit");
 const axios = require("axios");
 
+// Get all canvases
+exports.getAllCanvases = async (req, res) => {
+  try {
+    const canvases = await Canvas.find().sort({ createdAt: -1 });
+    res.status(200).json(canvases);
+  } catch (err) {
+    console.error("Error fetching canvases:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // Initialize a new canvas
 exports.initCanvas = async (req, res) => {
   try {

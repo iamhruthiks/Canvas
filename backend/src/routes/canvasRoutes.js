@@ -8,6 +8,9 @@ router.get("/", (req, res) => {
   res.json({ msg: "canvas endpoints have been hit" });
 });
 
+// Get all canvases
+router.get("/all", canvasController.getAllCanvases);
+
 // Initialize a new canvas
 router.post("/init", canvasController.initCanvas);
 
