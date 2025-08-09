@@ -1,4 +1,5 @@
 const Canvas = require("../models/canvasModel");
+const cloudinary = require("../config/cloudinaryConfig");
 
 // Initialize a new canvas
 exports.initCanvas = async (req, res) => {
@@ -118,8 +119,65 @@ exports.addImageByUrl = async (req, res) => {
 };
 
 // Add image by upload
-exports.addImageByUpload = (req, res) => {
-  res.status(501).json({ error: "add image-upload not implemented yet" });
+exports.addImageByUpload = async (req, res) => {
+  try {
+    const { canvasId, type, props } = req.body;
+
+    if (!canvasId || type !== "image") {
+      return res
+        .status(400)
+        .json({ error: "canvasId and type=image are required" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Image file is required" });
+    }
+
+    let parsedProps = props;
+    if (typeof props === "string") {
+      try {
+        parsedProps = JSON.parse(props);
+      } catch (error) {
+        return res.status(400).json({ error: "Invalid JSON in props" });
+      }
+    }
+
+    const canvas = await Canvas.findById(canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    const uploadFromBuffer = (buffer) =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "canvas-builder" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(buffer);
+      });
+
+    const result = await uploadFromBuffer(req.file.buffer);
+
+    canvas.elements.push({
+      type,
+      props: {
+        ...parsedProps,
+        url: result.secure_url,
+      },
+    });
+
+    await canvas.save();
+
+    return res
+      .status(200)
+      .json({ message: "Image uploaded successfully", canvas });
+  } catch (err) {
+    console.error("Error uploading image:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 };
 
 // Export canvas as PDF

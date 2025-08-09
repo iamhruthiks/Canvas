@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const canvasController = require("../controllers/canvasController");
+const upload = require("../middlewares/uploadMiddleware");
 
 // Testing
 router.get("/", (req, res) => {
@@ -20,7 +21,11 @@ router.post("/add/text", canvasController.addText);
 router.post("/add/image-url", canvasController.addImageByUrl);
 
 // Add image by upload
-router.post("/add/image-upload", canvasController.addImageByUpload);
+router.post(
+  "/add/image-upload",
+  upload.single("image"),
+  canvasController.addImageByUpload
+);
 
 // Export canvas as PDF
 router.get("/export/:canvasId", canvasController.exportCanvasAsPdf);
