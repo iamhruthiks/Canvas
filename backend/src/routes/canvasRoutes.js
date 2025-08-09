@@ -39,4 +39,7 @@ router.post(
 // Export canvas as PDF
 router.get("/export/:canvasId", canvasController.exportCanvasAsPdf);
 
+// Delete a canvas by ID
+router.delete("/delete/:canvasId", canvasController.deleteCanvas);
+
 module.exports = router;

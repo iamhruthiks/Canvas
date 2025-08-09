@@ -380,3 +380,21 @@ exports.exportCanvasAsPdf = async (req, res) => {
     res.status(500).json({ error: "Failed to export PDF" });
   }
 };
+
+// Delete a canvas by ID
+exports.deleteCanvas = async (req, res) => {
+  try {
+    const { canvasId } = req.params;
+
+    const canvas = await Canvas.findByIdAndDelete(canvasId);
+
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    res.status(200).json({ message: "Canvas deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting canvas:", error);
+    res.status(500).json({ error: "Failed to delete canvas" });
+  }
+};
