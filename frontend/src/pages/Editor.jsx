@@ -706,6 +706,26 @@ const Editor = () => {
           Delete
         </button>
       </div>
+      <button
+        onClick={() => {
+          window.open(`${API_BASE_URL}/api/v1/canvas/export/${canvasId}`);
+        }}
+        style={{
+          backgroundColor: "#4CAF50",
+          color: "white",
+          border: "none",
+          padding: "5px 10px",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontWeight: "bold",
+          zIndex: 10,
+          marginBottom: "2.5%",
+        }}
+        title="Export as PDF"
+        aria-label="Export Canvas as PDF"
+      >
+        Export PDF
+      </button>
 
       <div
         id="canvas-container"
