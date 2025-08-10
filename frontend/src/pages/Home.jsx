@@ -8,9 +8,9 @@ export default function Home() {
           continue working on your existing canvas.
         </p>
         <div className="home-buttons">
-          <a href="/dashboard" className="btn-primary">
+          {/* <a href="/dashboard" className="btn-primary">
             Go to Dashboard
-          </a>
+          </a> */}
           <a
             href="https://hruthiks.vercel.app"
             className="btn-secondary"
